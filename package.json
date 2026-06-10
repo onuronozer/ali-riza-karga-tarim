@@ -1,0 +1,40 @@
+{
+  "name": "ali-riza-karga-tarim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ali Riza Karga TARIM offline-first desktop MVP",
+  "type": "module",
+  "main": "out/main/electron.js",
+  "scripts": {
+    "dev": "electron-vite --config electron.vite.config.mjs",
+    "build": "tsc --noEmit && electron-vite build --config electron.vite.config.mjs",
+    "mobile:dev": "vite src/mobile --mode mobile --host 0.0.0.0",
+    "mobile:build": "tsc --noEmit && vite build src/mobile --mode mobile --base ./ --outDir ../../out/mobile --emptyOutDir",
+    "preview": "electron-vite preview --config electron.vite.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.80.7",
+    "better-sqlite3": "^12.10.0",
+    "firebase": "^12.14.0",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "uuid": "^11.0.3",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
+    "@swc/core": "^1.10.1",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.1",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}
