@@ -1101,12 +1101,12 @@ tr:last-child td {
   display: flex;
   gap: 10px;
   justify-content: center;
-  width: 148mm;
+  width: 210mm;
   max-width: calc(100vw - 48px);
 }
 
 .print-size-hint {
-  width: 148mm;
+  width: 210mm;
   max-width: calc(100vw - 48px);
   padding: 9px 12px;
   border: 1px solid #efca8d;
@@ -1128,9 +1128,11 @@ tr:last-child td {
 
 .receipt-print-sheet {
   page: receipt-print;
-  width: 148mm;
-  min-height: 210mm;
-  padding: 10mm;
+  display: grid;
+  gap: 4mm;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 8mm;
   border: 1px solid #d7dfd1;
   background:
     linear-gradient(180deg, #f6faf3 0, #fff 22mm),
@@ -1138,6 +1140,45 @@ tr:last-child td {
   color: #111912;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
   break-after: page;
+}
+
+.receipt-print-copy {
+  display: grid;
+  align-content: start;
+  gap: 4mm;
+  min-height: 126mm;
+  padding: 5mm;
+  border: 1px solid #cfd9c6;
+  border-radius: 5mm;
+  background: linear-gradient(180deg, #f6faf3 0, #fff 22mm);
+}
+
+.receipt-copy-label {
+  justify-self: end;
+  padding: 2mm 3mm;
+  border: 1px solid #efca8d;
+  border-radius: 999px;
+  background: #fff7e8;
+  color: #744700;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.receipt-cut-line {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  color: #8a7562;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.receipt-cut-line::before,
+.receipt-cut-line::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed #b79a79;
 }
 
 .payment-print-sheet {
@@ -1153,28 +1194,28 @@ tr:last-child td {
 
 .receipt-print-header {
   display: grid;
-  grid-template-columns: 18mm minmax(0, 1fr) auto;
+  grid-template-columns: 15mm minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding-bottom: 7mm;
+  padding-bottom: 4mm;
   border-bottom: 3px solid #24422c;
 }
 
 .receipt-print-header img {
-  width: 16mm;
-  height: 16mm;
+  width: 13mm;
+  height: 13mm;
 }
 
 .receipt-print-header h2 {
   margin: 0 0 3px;
   color: #24422c;
-  font-size: 21px;
+  font-size: 18px;
   letter-spacing: 0;
 }
 
 .receipt-print-header strong {
   color: #5c3d0f;
-  font-size: 13px;
+  font-size: 11px;
   letter-spacing: 0;
 }
 
@@ -1189,7 +1230,7 @@ tr:last-child td {
 .receipt-print-table {
   display: grid;
   gap: 0;
-  margin-top: 6mm;
+  margin-top: 0;
   border: 1px solid #cfd9c6;
   border-radius: 8px;
   overflow: hidden;
@@ -1207,8 +1248,8 @@ tr:last-child td {
 .receipt-print-table div {
   display: grid;
   gap: 4px;
-  min-height: 16mm;
-  padding: 6px 8px;
+  min-height: 12mm;
+  padding: 2mm 3mm;
   border-right: 1px solid #cfd9c6;
   border-bottom: 1px solid #cfd9c6;
   background: rgba(255, 255, 255, 0.82);
@@ -1228,32 +1269,32 @@ tr:last-child td {
 .receipt-print-note span,
 .receipt-print-signatures span {
   color: #596554;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .receipt-print-meta strong,
 .receipt-print-table strong {
-  font-size: 15px;
+  font-size: 12px;
 }
 
 .receipt-print-table div:last-child strong {
   color: #10271a;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .receipt-print-note {
-  min-height: 20mm;
-  margin-top: 6mm;
-  padding: 8px;
+  min-height: 12mm;
+  margin-top: 0;
+  padding: 2mm 3mm;
   border: 1px solid #cfd9c6;
   border-radius: 8px;
   background: #fff;
 }
 
 .receipt-print-note p {
-  margin: 8px 0 0;
+  margin: 1mm 0 0;
   line-height: 1.5;
 }
 
@@ -1261,11 +1302,11 @@ tr:last-child td {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 18mm;
-  margin-top: 14mm;
+  margin-top: 1mm;
 }
 
 .receipt-print-signatures div {
-  min-height: 24mm;
+  min-height: 12mm;
   border-bottom: 1px solid #111;
 }
 
@@ -1390,8 +1431,8 @@ tr:last-child td {
 }
 
 @page receipt-print {
-  size: A5 portrait;
-  margin: 8mm;
+  size: A4 portrait;
+  margin: 0;
 }
 
 @page payment-print {
@@ -1439,10 +1480,10 @@ tr:last-child td {
     position: absolute;
     top: 0;
     left: 0;
-    width: 132mm;
-    min-height: 194mm;
-    max-height: 194mm;
-    padding: 0;
+    width: 210mm;
+    min-height: 297mm;
+    max-height: 297mm;
+    padding: 8mm;
     overflow: hidden;
     box-shadow: none;
   }

@@ -854,7 +854,7 @@ function PurchasesPage(): JSX.Element {
             </select>
           </label>
           <label>
-            <span>BrÃ¼t kg</span>
+            <span>Brüt kg</span>
             <input
               autoFocus
               inputMode="decimal"
@@ -873,7 +873,7 @@ function PurchasesPage(): JSX.Element {
             />
           </label>
           <label>
-            <span>Kasa darasÄ±</span>
+            <span>Kasa darası</span>
             <select value={crateTareKg} onChange={(event) => setCrateTareKg(event.target.value)}>
               <option value="1">1 kg</option>
               <option value="2">2 kg</option>
@@ -1008,7 +1008,7 @@ function PurchasesPage(): JSX.Element {
             receipt.farmerName,
             receipt.companyName,
             receipt.apricotTypeName,
-            `${formatGramAsKg(receipt.grossQuantityGram || receipt.quantityGram)} brÃ¼t / ${formatGramAsKg(receipt.quantityGram)} net`,
+            `${formatGramAsKg(receipt.grossQuantityGram || receipt.quantityGram)} brüt / ${formatGramAsKg(receipt.quantityGram)} net`,
             formatKurus(receipt.totalAmountKurus),
             receipt.isCancelled ? 'İptal' : 'Geçerli',
             receipt.isCancelled ? (
@@ -1062,6 +1062,8 @@ function ReceiptPrintPreview({
       <div className="print-size-hint">Alım fişi A5 dikey boyutta hazırlanır. Yazıcı ekranında kağıt boyutu A5 seçili olmalı.</div>
 
       <article className="receipt-print-sheet">
+        <section className="receipt-print-copy">
+        <div className="receipt-copy-label">ÇİFTÇİ NÜSHASI</div>
         <header className="receipt-print-header">
           <img src={arkLogoUrl} alt="" aria-hidden="true" />
           <div>
@@ -1101,7 +1103,7 @@ function ReceiptPrintPreview({
           </div>
           <div>
             <span>Miktar</span>
-            <strong>{formatGramAsKg(receipt.grossQuantityGram || receipt.quantityGram)} brut</strong>
+            <strong>{formatGramAsKg(receipt.grossQuantityGram || receipt.quantityGram)} brüt</strong>
           </div>
           <div>
             <span>Kasa / Dara</span>
@@ -1134,6 +1136,83 @@ function ReceiptPrintPreview({
             <span>Teslim Alan</span>
           </div>
         </footer>
+        </section>
+        <div className="receipt-cut-line"><span>Kesim çizgisi</span></div>
+        <section className="receipt-print-copy">
+        <div className="receipt-copy-label">ARŞİV NÜSHASI</div>
+        <header className="receipt-print-header">
+          <img src={arkLogoUrl} alt="" aria-hidden="true" />
+          <div>
+            <h2>Ali Rıza Karga TARIM</h2>
+            <strong>KAYISI ALIM FİŞİ</strong>
+          </div>
+          {receipt.isCancelled ? <span>İPTAL</span> : null}
+        </header>
+
+        <section className="receipt-print-meta">
+          <div>
+            <span>Fiş No</span>
+            <strong>{receipt.receiptNo}</strong>
+          </div>
+          <div>
+            <span>Tarih</span>
+            <strong>{formatDateTr(receipt.date)}</strong>
+          </div>
+          <div>
+            <span>Saat</span>
+            <strong>{receipt.timeText}</strong>
+          </div>
+        </section>
+
+        <section className="receipt-print-table">
+          <div>
+            <span>Çiftçi / Müstahsil</span>
+            <strong>{receipt.farmerName}</strong>
+          </div>
+          <div>
+            <span>Firma</span>
+            <strong>{receipt.companyName}</strong>
+          </div>
+          <div>
+            <span>Kayısı Cinsi</span>
+            <strong>{receipt.apricotTypeName}</strong>
+          </div>
+          <div>
+            <span>Miktar</span>
+            <strong>{formatGramAsKg(receipt.grossQuantityGram || receipt.quantityGram)} brüt</strong>
+          </div>
+          <div>
+            <span>Kasa / Dara</span>
+            <strong>{receipt.crateCount ? `${receipt.crateCount} kasa x ${formatGramAsKg(receipt.crateTareGram)}` : '-'}</strong>
+          </div>
+          <div>
+            <span>Net Miktar</span>
+            <strong>{formatGramAsKg(receipt.quantityGram)}</strong>
+          </div>
+          <div>
+            <span>Birim Fiyat</span>
+            <strong>{formatKurus(receipt.unitPriceKurus)}</strong>
+          </div>
+          <div>
+            <span>Toplam Tutar</span>
+            <strong>{formatKurus(receipt.totalAmountKurus)}</strong>
+          </div>
+        </section>
+
+        <section className="receipt-print-note">
+          <span>Not</span>
+          <p>{receipt.note ?? '-'}</p>
+        </section>
+
+        <footer className="receipt-print-signatures">
+          <div>
+            <span>Teslim Eden</span>
+          </div>
+          <div>
+            <span>Teslim Alan</span>
+          </div>
+        </footer>
+        </section>
       </article>
     </div>
   );

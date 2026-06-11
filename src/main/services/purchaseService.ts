@@ -197,19 +197,19 @@ export function createPurchaseReceipt(input: SavePurchaseReceiptInput): Purchase
     const unitPriceKurus = Math.round(Number(input.unitPriceKurus));
 
     if (!Number.isFinite(grossQuantityGram) || grossQuantityGram <= 0) {
-      throw new Error('Brut kg degeri sifirdan buyuk olmali.');
+      throw new Error('Brüt kg değeri sıfırdan büyük olmalı.');
     }
 
     if (!Number.isFinite(crateCount) || crateCount < 0) {
-      throw new Error('Kasa adedi gecerli olmali.');
+      throw new Error('Kasa adedi geçerli olmalı.');
     }
 
     if (![0, 1000, 2000, 3000, 4000].includes(crateTareGram)) {
-      throw new Error('Dara 1, 2, 3 veya 4 kg secilmeli.');
+      throw new Error('Dara 1, 2, 3 veya 4 kg seçilmeli.');
     }
 
     if (totalTareGram >= grossQuantityGram) {
-      throw new Error('Toplam dara brut kilodan fazla olamaz.');
+      throw new Error('Toplam dara brüt kilodan fazla olamaz.');
     }
 
     if (!Number.isFinite(quantityGram) || quantityGram <= 0) {

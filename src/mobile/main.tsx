@@ -694,19 +694,19 @@ async function createMobilePurchaseReceipt(input: {
   const unitPriceKurus = Math.round(Number(input.unitPriceKurus));
 
   if (!Number.isFinite(grossQuantityGram) || grossQuantityGram <= 0) {
-    throw new Error('Brut kg sifirdan buyuk olmali.');
+    throw new Error('Brüt kg sıfırdan büyük olmalı.');
   }
 
   if (!Number.isFinite(crateCount) || crateCount < 0) {
-    throw new Error('Kasa adedi gecerli olmali.');
+    throw new Error('Kasa adedi geçerli olmalı.');
   }
 
   if (![1000, 2000, 3000, 4000].includes(crateTareGram)) {
-    throw new Error('Dara 1, 2, 3 veya 4 kg secilmeli.');
+    throw new Error('Dara 1, 2, 3 veya 4 kg seçilmeli.');
   }
 
   if (totalTareGram >= grossQuantityGram) {
-    throw new Error('Toplam dara brut kilodan fazla olamaz.');
+    throw new Error('Toplam dara brüt kilodan fazla olamaz.');
   }
 
   if (!Number.isFinite(quantityGram) || quantityGram <= 0) {
@@ -950,7 +950,7 @@ function receiptShareText(receipt: ReceiptDoc): string {
     `Çiftçi: ${receipt.farmerName}`,
     `Firma: ${receipt.companyName}`,
     `Cins: ${receipt.apricotTypeName}`,
-    `Brut: ${formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))}`,
+    `Brüt: ${formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))}`,
     receipt.crateCount ? `Dara: ${receipt.crateCount} kasa x ${formatGramAsKg(asNumber(receipt.crateTareGram))}` : '',
     `Net: ${formatGramAsKg(asNumber(receipt.quantityGram))}`,
     `Birim fiyat: ${formatKurus(asNumber(receipt.unitPriceKurus))}`,
@@ -963,6 +963,87 @@ function receiptShareText(receipt: ReceiptDoc): string {
 
 async function shareReceipt(receipt: ReceiptDoc): Promise<void> {
   await sharePlainText(`Alım Fişi ${receipt.receiptNo}`, receiptShareText(receipt));
+}
+
+function receiptTareText(receipt: ReceiptDoc): string {
+  return receipt.crateCount ? `${receipt.crateCount} kasa x ${formatGramAsKg(asNumber(receipt.crateTareGram))}` : '-';
+}
+
+function ReceiptPrintCopy({ receipt, copyLabel }: { receipt: ReceiptDoc; copyLabel: string }): JSX.Element {
+  return (
+    <section className="receipt-print-copy">
+      <header className="receipt-copy-header">
+        <img src={arkLogoUrl} alt="" aria-hidden="true" />
+        <div>
+          <strong>Ali Rıza Karga TARIM</strong>
+          <span>Kayısı Alım Fişi</span>
+        </div>
+        <em>{copyLabel}</em>
+      </header>
+      <div className="receipt-copy-meta">
+        <div>
+          <span>Fiş No</span>
+          <strong>{receipt.receiptNo}</strong>
+        </div>
+        <div>
+          <span>Tarih</span>
+          <strong>{shortDate(receipt.date)} {receipt.timeText}</strong>
+        </div>
+      </div>
+      <div className="receipt-copy-grid">
+        <div>
+          <span>Çiftçi</span>
+          <strong>{receipt.farmerName}</strong>
+        </div>
+        <div>
+          <span>Firma</span>
+          <strong>{receipt.companyName}</strong>
+        </div>
+        <div>
+          <span>Cins</span>
+          <strong>{receipt.apricotTypeName}</strong>
+        </div>
+        <div>
+          <span>Brüt</span>
+          <strong>{formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))}</strong>
+        </div>
+        <div>
+          <span>Kasa / Dara</span>
+          <strong>{receiptTareText(receipt)}</strong>
+        </div>
+        <div>
+          <span>Net</span>
+          <strong>{formatGramAsKg(asNumber(receipt.quantityGram))}</strong>
+        </div>
+        <div>
+          <span>Birim fiyat</span>
+          <strong>{formatKurus(asNumber(receipt.unitPriceKurus))}</strong>
+        </div>
+        <div className="receipt-copy-total">
+          <span>Toplam</span>
+          <strong>{formatKurus(asNumber(receipt.totalAmountKurus))}</strong>
+        </div>
+      </div>
+      <div className="receipt-copy-note">
+        <span>Not</span>
+        <strong>{receipt.note || '-'}</strong>
+      </div>
+      <footer className="receipt-copy-signatures">
+        <span>Teslim Eden</span>
+        <span>Teslim Alan</span>
+      </footer>
+    </section>
+  );
+}
+
+function ReceiptPrintSheet({ receipt }: { receipt: ReceiptDoc }): JSX.Element {
+  return (
+    <article className="mobile-receipt-print-sheet" aria-hidden="true">
+      <ReceiptPrintCopy receipt={receipt} copyLabel="ÇİFTÇİ NÜSHASI" />
+      <div className="receipt-cut-line"><span>Kesim çizgisi</span></div>
+      <ReceiptPrintCopy receipt={receipt} copyLabel="ARŞİV NÜSHASI" />
+    </article>
+  );
 }
 
 function farmerPaymentShareText(payment: FarmerPaymentDoc): string {
@@ -1727,7 +1808,7 @@ function MobileReceiptForm({
           </select>
         </label>
         <label>
-          <span>BrÃ¼t kg</span>
+          <span>Brüt kg</span>
           <input
             inputMode="decimal"
             value={form.quantityKg}
@@ -1745,7 +1826,7 @@ function MobileReceiptForm({
           />
         </label>
         <label>
-          <span>Kasa darasÄ±</span>
+          <span>Kasa darası</span>
           <select
             value={form.crateTareKg}
             onChange={(event) => setForm((current) => ({ ...current, crateTareKg: event.target.value }))}
@@ -2151,7 +2232,7 @@ function MobileReceiptPrintCard({ receipt }: { receipt: ReceiptDoc }): JSX.Eleme
         <Info label="Çiftçi" value={receipt.farmerName} />
         <Info label="Firma" value={receipt.companyName} />
         <Info label="Cins" value={receipt.apricotTypeName} />
-        <Info label="BrÃ¼t kg" value={formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} />
+        <Info label="Brüt kg" value={formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} />
         <Info
           label="Kasa / Dara"
           value={receipt.crateCount ? `${receipt.crateCount} kasa x ${formatGramAsKg(asNumber(receipt.crateTareGram))}` : '-'}
@@ -2159,6 +2240,7 @@ function MobileReceiptPrintCard({ receipt }: { receipt: ReceiptDoc }): JSX.Eleme
         <Info label="Net kg" value={formatGramAsKg(asNumber(receipt.quantityGram))} />
         <Info label="Toplam" value={formatKurus(asNumber(receipt.totalAmountKurus))} />
       </div>
+      <ReceiptPrintSheet receipt={receipt} />
       <div className="detail-actions">
         <button type="button" onClick={() => void shareReceipt(receipt)}>
           Paylaş
@@ -2959,7 +3041,7 @@ function ReceiptRow({ receipt }: { receipt: ReceiptDoc }): JSX.Element {
       </div>
       <div>
         <strong>{formatGramAsKg(asNumber(receipt.quantityGram))}</strong>
-        <small>{formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} brut</small>
+        <small>{formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} brüt</small>
         <span>{formatKurus(asNumber(receipt.totalAmountKurus))}</span>
       </div>
     </article>
@@ -2998,7 +3080,7 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptDoc | null }): JSX.Element
         <Info label="Çiftçi" value={receipt.farmerName} />
         <Info label="Firma" value={receipt.companyName} />
         <Info label="Cins" value={receipt.apricotTypeName} />
-        <Info label="BrÃ¼t kg" value={formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} />
+        <Info label="Brüt kg" value={formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} />
         <Info
           label="Kasa / Dara"
           value={receipt.crateCount ? `${receipt.crateCount} kasa x ${formatGramAsKg(asNumber(receipt.crateTareGram))}` : '-'}
@@ -3008,6 +3090,7 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptDoc | null }): JSX.Element
         <Info label="Toplam" value={formatKurus(asNumber(receipt.totalAmountKurus))} />
         <Info label="Not" value={receipt.note || '-'} />
       </div>
+      <ReceiptPrintSheet receipt={receipt} />
     </section>
   );
 }
