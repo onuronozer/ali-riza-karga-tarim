@@ -26,6 +26,9 @@ interface PurchaseReceiptRow {
   company_name: string;
   apricot_type_id: string;
   apricot_type_name: string;
+  gross_quantity_gram: number;
+  crate_count: number;
+  crate_tare_gram: number;
   quantity_gram: number;
   unit_price_kurus: number;
   total_amount_kurus: number;
@@ -92,6 +95,9 @@ function mapReceipt(row: PurchaseReceiptRow): PurchaseReceiptListItem {
     companyName: row.company_name,
     apricotTypeId: row.apricot_type_id,
     apricotTypeName: row.apricot_type_name,
+    grossQuantityGram: row.gross_quantity_gram || row.quantity_gram,
+    crateCount: row.crate_count ?? 0,
+    crateTareGram: row.crate_tare_gram ?? 0,
     quantityGram: row.quantity_gram,
     unitPriceKurus: row.unit_price_kurus,
     totalAmountKurus: row.total_amount_kurus,
@@ -161,7 +167,8 @@ export function listPurchaseReceipts(): PurchaseReceiptListItem[] {
     .prepare(
       `
       SELECT id, receipt_no, season_id, date, date_key, time_text, farmer_id, farmer_name,
-             company_id, company_name, apricot_type_id, apricot_type_name, quantity_gram,
+             company_id, company_name, apricot_type_id, apricot_type_name,
+             gross_quantity_gram, crate_count, crate_tare_gram, quantity_gram,
              unit_price_kurus, total_amount_kurus, note, is_cancelled
       FROM purchase_receipts
       WHERE deleted_at IS NULL
@@ -182,8 +189,28 @@ export function createPurchaseReceipt(input: SavePurchaseReceiptInput): Purchase
     const date = requiredText(input.date, 'Tarih');
     const dateKey = dateToDateKey(date);
     const timeText = requiredText(input.timeText, 'Saat');
-    const quantityGram = Math.round(Number(input.quantityGram));
+    const grossQuantityGram = Math.round(Number(input.grossQuantityGram ?? input.quantityGram));
+    const crateCount = Math.max(0, Math.round(Number(input.crateCount ?? 0)));
+    const crateTareGram = Math.round(Number(input.crateTareGram ?? 0));
+    const totalTareGram = crateCount * crateTareGram;
+    const quantityGram = Math.round(Number(input.quantityGram || grossQuantityGram - totalTareGram));
     const unitPriceKurus = Math.round(Number(input.unitPriceKurus));
+
+    if (!Number.isFinite(grossQuantityGram) || grossQuantityGram <= 0) {
+      throw new Error('Brut kg degeri sifirdan buyuk olmali.');
+    }
+
+    if (!Number.isFinite(crateCount) || crateCount < 0) {
+      throw new Error('Kasa adedi gecerli olmali.');
+    }
+
+    if (![0, 1000, 2000, 3000, 4000].includes(crateTareGram)) {
+      throw new Error('Dara 1, 2, 3 veya 4 kg secilmeli.');
+    }
+
+    if (totalTareGram >= grossQuantityGram) {
+      throw new Error('Toplam dara brut kilodan fazla olamaz.');
+    }
 
     if (!Number.isFinite(quantityGram) || quantityGram <= 0) {
       throw new Error('Kg değeri sıfırdan büyük olmalı.');
@@ -206,12 +233,14 @@ export function createPurchaseReceipt(input: SavePurchaseReceiptInput): Purchase
       INSERT INTO purchase_receipts (
         id, cloud_id, receipt_no, season_id, date, date_key, time_text,
         farmer_id, farmer_name, company_id, company_name, apricot_type_id, apricot_type_name,
+        gross_quantity_gram, crate_count, crate_tare_gram,
         quantity_gram, unit_price_kurus, total_amount_kurus, note, is_cancelled,
         cancelled_at, cancel_reason, sync_status, created_at, updated_at, deleted_at, version
       )
       VALUES (
         @id, NULL, @receiptNo, @seasonId, @date, @dateKey, @timeText,
         @farmerId, @farmerName, @companyId, @companyName, @apricotTypeId, @apricotTypeName,
+        @grossQuantityGram, @crateCount, @crateTareGram,
         @quantityGram, @unitPriceKurus, @totalAmountKurus, @note, 0,
         NULL, NULL, 'pending_create', @createdAt, @updatedAt, NULL, 1
       )
@@ -229,6 +258,9 @@ export function createPurchaseReceipt(input: SavePurchaseReceiptInput): Purchase
       companyName: company.name,
       apricotTypeId: apricotType.id,
       apricotTypeName: apricotType.name,
+      grossQuantityGram,
+      crateCount,
+      crateTareGram,
       quantityGram,
       unitPriceKurus,
       totalAmountKurus,
@@ -352,7 +384,8 @@ export function createPurchaseReceipt(input: SavePurchaseReceiptInput): Purchase
       .prepare(
         `
         SELECT id, receipt_no, season_id, date, date_key, time_text, farmer_id, farmer_name,
-               company_id, company_name, apricot_type_id, apricot_type_name, quantity_gram,
+               company_id, company_name, apricot_type_id, apricot_type_name,
+               gross_quantity_gram, crate_count, crate_tare_gram, quantity_gram,
                unit_price_kurus, total_amount_kurus, note, is_cancelled
         FROM purchase_receipts
         WHERE id = ?
@@ -375,7 +408,8 @@ export function cancelPurchaseReceipt(input: CancelInput): void {
       .prepare(
         `
         SELECT id, receipt_no, season_id, date, date_key, time_text, farmer_id, farmer_name,
-               company_id, company_name, apricot_type_id, apricot_type_name, quantity_gram,
+               company_id, company_name, apricot_type_id, apricot_type_name,
+               gross_quantity_gram, crate_count, crate_tare_gram, quantity_gram,
                unit_price_kurus, total_amount_kurus, note, is_cancelled
         FROM purchase_receipts
         WHERE id = ? AND deleted_at IS NULL

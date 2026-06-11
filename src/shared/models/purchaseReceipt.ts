@@ -12,6 +12,9 @@ export interface PurchaseReceipt extends SyncFields {
   companyName: string;
   apricotTypeId: string;
   apricotTypeName: string;
+  grossQuantityGram: number;
+  crateCount: number;
+  crateTareGram: number;
   quantityGram: number;
   unitPriceKurus: number;
   totalAmountKurus: number;

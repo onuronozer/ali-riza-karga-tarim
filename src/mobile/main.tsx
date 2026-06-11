@@ -53,6 +53,9 @@ interface ReceiptDoc {
   companyName: string;
   apricotTypeId?: string;
   apricotTypeName: string;
+  grossQuantityGram?: number;
+  crateCount?: number;
+  crateTareGram?: number;
   quantityGram: number;
   unitPriceKurus?: number;
   totalAmountKurus: number;
@@ -671,6 +674,9 @@ async function createMobilePurchaseReceipt(input: {
   farmerId: string;
   companyId: string;
   apricotTypeId: string;
+  grossQuantityGram: number;
+  crateCount: number;
+  crateTareGram: number;
   quantityGram: number;
   unitPriceKurus: number;
   note: string;
@@ -680,8 +686,28 @@ async function createMobilePurchaseReceipt(input: {
   const date = requiredText(input.date, 'Tarih');
   const dateKey = dateToDateKey(date);
   const timeText = requiredText(input.timeText, 'Saat');
-  const quantityGram = Math.round(Number(input.quantityGram));
+  const grossQuantityGram = Math.round(Number(input.grossQuantityGram || input.quantityGram));
+  const crateCount = Math.max(0, Math.round(Number(input.crateCount || 0)));
+  const crateTareGram = Math.round(Number(input.crateTareGram || 0));
+  const totalTareGram = crateCount * crateTareGram;
+  const quantityGram = Math.round(Number(input.quantityGram || grossQuantityGram - totalTareGram));
   const unitPriceKurus = Math.round(Number(input.unitPriceKurus));
+
+  if (!Number.isFinite(grossQuantityGram) || grossQuantityGram <= 0) {
+    throw new Error('Brut kg sifirdan buyuk olmali.');
+  }
+
+  if (!Number.isFinite(crateCount) || crateCount < 0) {
+    throw new Error('Kasa adedi gecerli olmali.');
+  }
+
+  if (![1000, 2000, 3000, 4000].includes(crateTareGram)) {
+    throw new Error('Dara 1, 2, 3 veya 4 kg secilmeli.');
+  }
+
+  if (totalTareGram >= grossQuantityGram) {
+    throw new Error('Toplam dara brut kilodan fazla olamaz.');
+  }
 
   if (!Number.isFinite(quantityGram) || quantityGram <= 0) {
     throw new Error('Kg sıfırdan büyük olmalı.');
@@ -728,6 +754,9 @@ async function createMobilePurchaseReceipt(input: {
       companyName: company.name,
       apricotTypeId: input.apricotTypeId,
       apricotTypeName: apricotType.name,
+      grossQuantityGram,
+      crateCount,
+      crateTareGram,
       quantityGram,
       unitPriceKurus,
       totalAmountKurus,
@@ -921,7 +950,9 @@ function receiptShareText(receipt: ReceiptDoc): string {
     `Çiftçi: ${receipt.farmerName}`,
     `Firma: ${receipt.companyName}`,
     `Cins: ${receipt.apricotTypeName}`,
-    `Miktar: ${formatGramAsKg(asNumber(receipt.quantityGram))}`,
+    `Brut: ${formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))}`,
+    receipt.crateCount ? `Dara: ${receipt.crateCount} kasa x ${formatGramAsKg(asNumber(receipt.crateTareGram))}` : '',
+    `Net: ${formatGramAsKg(asNumber(receipt.quantityGram))}`,
     `Birim fiyat: ${formatKurus(asNumber(receipt.unitPriceKurus))}`,
     `Toplam: ${formatKurus(asNumber(receipt.totalAmountKurus))}`,
     receipt.note ? `Not: ${receipt.note}` : ''
@@ -985,8 +1016,10 @@ function App(): JSX.Element {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
 
-  const refresh = async (): Promise<void> => {
-    setState('loading');
+  const refresh = async (options?: { silent?: boolean }): Promise<void> => {
+    if (!options?.silent) {
+      setState('loading');
+    }
     setError(null);
 
     try {
@@ -1036,6 +1069,18 @@ function App(): JSX.Element {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refresh({ silent: true });
+    }, 10_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [user]);
 
   const login = async (): Promise<void> => {
     const app = getFirebaseApp();
@@ -1316,7 +1361,7 @@ function App(): JSX.Element {
                 <small>Cihaz</small>
                 <strong>{mobileDevice?.code ?? 'Hazırlanıyor'}</strong>
               </div>
-              <button className="ghost-button" onClick={refresh} disabled={state === 'loading'}>
+              <button className="ghost-button" onClick={() => void refresh()} disabled={state === 'loading'}>
                 Yenile
               </button>
             </div>
@@ -1553,6 +1598,8 @@ function MobileReceiptForm({
     companyId: '',
     apricotTypeId: '',
     quantityKg: '',
+    crateCount: '',
+    crateTareKg: '2',
     unitPriceTl: '',
     note: ''
   });
@@ -1570,7 +1617,11 @@ function MobileReceiptForm({
     }));
   }, [farmers, companies, apricotTypes]);
 
-  const quantityGram = parseKgToGram(form.quantityKg);
+  const grossQuantityGram = parseKgToGram(form.quantityKg);
+  const crateCount = Math.max(0, Math.round(Number(form.crateCount || 0)));
+  const crateTareGram = parseKgToGram(form.crateTareKg);
+  const tareGram = crateCount * crateTareGram;
+  const quantityGram = Math.max(0, grossQuantityGram - tareGram);
   const unitPriceKurus = parseTlToKurus(form.unitPriceTl);
   const totalKurus =
     quantityGram > 0 && unitPriceKurus > 0 ? Math.round((quantityGram * unitPriceKurus) / 1000) : 0;
@@ -1596,13 +1647,16 @@ function MobileReceiptForm({
         farmerId: form.farmerId,
         companyId: form.companyId,
         apricotTypeId: form.apricotTypeId,
+        grossQuantityGram,
+        crateCount,
+        crateTareGram,
         quantityGram,
         unitPriceKurus,
         note: form.note
       });
       setCreatedReceipt(receipt);
       setStatus(`Fiş kaydedildi: ${receipt.receiptNo}`);
-      setForm((current) => ({ ...current, timeText: currentTimeText(), quantityKg: '', note: '' }));
+      setForm((current) => ({ ...current, timeText: currentTimeText(), quantityKg: '', crateCount: '', note: '' }));
       await onCreated();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Fiş kaydedilemedi.');
@@ -1673,7 +1727,7 @@ function MobileReceiptForm({
           </select>
         </label>
         <label>
-          <span>Kg</span>
+          <span>BrÃ¼t kg</span>
           <input
             inputMode="decimal"
             value={form.quantityKg}
@@ -1681,6 +1735,28 @@ function MobileReceiptForm({
             placeholder="1480"
           />
         </label>
+        <label>
+          <span>Kasa adedi</span>
+          <input
+            inputMode="numeric"
+            value={form.crateCount}
+            onChange={(event) => setForm((current) => ({ ...current, crateCount: event.target.value }))}
+            placeholder="0"
+          />
+        </label>
+        <label>
+          <span>Kasa darasÄ±</span>
+          <select
+            value={form.crateTareKg}
+            onChange={(event) => setForm((current) => ({ ...current, crateTareKg: event.target.value }))}
+          >
+            <option value="1">1 kg</option>
+            <option value="2">2 kg</option>
+            <option value="3">3 kg</option>
+            <option value="4">4 kg</option>
+          </select>
+        </label>
+        <Info label="Net kg" value={`${formatGramAsKg(quantityGram)} / dara ${formatGramAsKg(tareGram)}`} />
         <label>
           <span>Birim fiyat</span>
           <input
@@ -2075,7 +2151,12 @@ function MobileReceiptPrintCard({ receipt }: { receipt: ReceiptDoc }): JSX.Eleme
         <Info label="Çiftçi" value={receipt.farmerName} />
         <Info label="Firma" value={receipt.companyName} />
         <Info label="Cins" value={receipt.apricotTypeName} />
-        <Info label="Kg" value={formatGramAsKg(asNumber(receipt.quantityGram))} />
+        <Info label="BrÃ¼t kg" value={formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} />
+        <Info
+          label="Kasa / Dara"
+          value={receipt.crateCount ? `${receipt.crateCount} kasa x ${formatGramAsKg(asNumber(receipt.crateTareGram))}` : '-'}
+        />
+        <Info label="Net kg" value={formatGramAsKg(asNumber(receipt.quantityGram))} />
         <Info label="Toplam" value={formatKurus(asNumber(receipt.totalAmountKurus))} />
       </div>
       <div className="detail-actions">
@@ -2878,6 +2959,7 @@ function ReceiptRow({ receipt }: { receipt: ReceiptDoc }): JSX.Element {
       </div>
       <div>
         <strong>{formatGramAsKg(asNumber(receipt.quantityGram))}</strong>
+        <small>{formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} brut</small>
         <span>{formatKurus(asNumber(receipt.totalAmountKurus))}</span>
       </div>
     </article>
@@ -2916,7 +2998,12 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptDoc | null }): JSX.Element
         <Info label="Çiftçi" value={receipt.farmerName} />
         <Info label="Firma" value={receipt.companyName} />
         <Info label="Cins" value={receipt.apricotTypeName} />
-        <Info label="Kg" value={formatGramAsKg(asNumber(receipt.quantityGram))} />
+        <Info label="BrÃ¼t kg" value={formatGramAsKg(asNumber(receipt.grossQuantityGram || receipt.quantityGram))} />
+        <Info
+          label="Kasa / Dara"
+          value={receipt.crateCount ? `${receipt.crateCount} kasa x ${formatGramAsKg(asNumber(receipt.crateTareGram))}` : '-'}
+        />
+        <Info label="Net kg" value={formatGramAsKg(asNumber(receipt.quantityGram))} />
         <Info label="Birim fiyat" value={formatKurus(asNumber(receipt.unitPriceKurus))} />
         <Info label="Toplam" value={formatKurus(asNumber(receipt.totalAmountKurus))} />
         <Info label="Not" value={receipt.note || '-'} />

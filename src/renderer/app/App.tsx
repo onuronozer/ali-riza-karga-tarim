@@ -106,9 +106,9 @@ interface AutoSyncState {
   isSyncing: boolean;
 }
 
-const AUTO_SYNC_RETRY_MS = 30_000;
+const AUTO_SYNC_RETRY_MS = 10_000;
 const AUTO_SYNC_ERROR_RETRY_MS = 120_000;
-const AUTO_SYNC_IDLE_PULL_MS = 60_000;
+const AUTO_SYNC_IDLE_PULL_MS = 10_000;
 
 function invalidateOperationalQueries(queryClient: ReturnType<typeof useQueryClient>): void {
   queryClient.invalidateQueries({ queryKey: ['active-season'] });
@@ -139,7 +139,7 @@ function useAutoSync(): AutoSyncState {
   const { data: syncStatus } = useQuery({
     queryKey: ['sync-status'],
     queryFn: () => window.arkTarim.sync.getStatus(),
-    refetchInterval: 15_000
+    refetchInterval: 10_000
   });
 
   useEffect(() => {
@@ -210,7 +210,7 @@ function useAutoSync(): AutoSyncState {
     };
 
     runIfDue();
-    const intervalId = window.setInterval(runIfDue, 15_000);
+    const intervalId = window.setInterval(runIfDue, 10_000);
 
     return () => {
       cancelled = true;
@@ -651,6 +651,8 @@ function PurchasesPage(): JSX.Element {
   const queryClient = useQueryClient();
   const now = new Date();
   const [quantityKg, setQuantityKg] = useState('');
+  const [crateCountText, setCrateCountText] = useState('');
+  const [crateTareKg, setCrateTareKg] = useState('2');
   const [unitPriceTl, setUnitPriceTl] = useState('');
   const [farmerSearch, setFarmerSearch] = useState('');
   const [isFarmerSearchOpen, setIsFarmerSearchOpen] = useState(false);
@@ -711,7 +713,11 @@ function PurchasesPage(): JSX.Element {
   });
   const activeCompanies = (companies ?? []).filter((company) => company.isActive);
   const activeApricotTypes = (apricotTypes ?? []).filter((type) => type.isActive);
-  const quantityGram = parseKgToGram(quantityKg);
+  const grossQuantityGram = parseKgToGram(quantityKg);
+  const crateCount = Math.max(0, Math.round(Number(crateCountText || 0)));
+  const crateTareGram = parseKgToGram(crateTareKg);
+  const tareGram = crateCount * crateTareGram;
+  const quantityGram = Math.max(0, grossQuantityGram - tareGram);
   const unitPriceKurus = parseTlToKurus(unitPriceTl);
   const totalAmountKurus = Math.round((quantityGram * unitPriceKurus) / 1000);
 
@@ -719,11 +725,15 @@ function PurchasesPage(): JSX.Element {
     mutationFn: (shouldPrint: boolean) =>
       getPurchasesApi().create({
         ...form,
+        grossQuantityGram,
+        crateCount,
+        crateTareGram,
         quantityGram,
         unitPriceKurus
       }),
     onSuccess: (receipt, shouldPrint) => {
       setQuantityKg('');
+      setCrateCountText('');
       setForm((value) => ({
         ...value,
         date: toInputDate(new Date()),
@@ -844,7 +854,7 @@ function PurchasesPage(): JSX.Element {
             </select>
           </label>
           <label>
-            <span>Kg</span>
+            <span>BrÃ¼t kg</span>
             <input
               autoFocus
               inputMode="decimal"
@@ -853,6 +863,29 @@ function PurchasesPage(): JSX.Element {
               placeholder="1000"
             />
           </label>
+          <label>
+            <span>Kasa adedi</span>
+            <input
+              inputMode="numeric"
+              value={crateCountText}
+              onChange={(event) => setCrateCountText(event.target.value)}
+              placeholder="0"
+            />
+          </label>
+          <label>
+            <span>Kasa darasÄ±</span>
+            <select value={crateTareKg} onChange={(event) => setCrateTareKg(event.target.value)}>
+              <option value="1">1 kg</option>
+              <option value="2">2 kg</option>
+              <option value="3">3 kg</option>
+              <option value="4">4 kg</option>
+            </select>
+          </label>
+          <div className="net-weight-box">
+            <span>Net kg</span>
+            <strong>{formatGramAsKg(quantityGram)}</strong>
+            <small>Dara: {formatGramAsKg(tareGram)}</small>
+          </div>
           <label>
             <span>Birim fiyat</span>
             <input
@@ -902,6 +935,8 @@ function PurchasesPage(): JSX.Element {
             className="ghost-action"
             onClick={() => {
               setQuantityKg('');
+              setCrateCountText('');
+              setCrateTareKg('2');
               setUnitPriceTl('');
               setForm((value) => ({
                 ...value,
@@ -973,7 +1008,7 @@ function PurchasesPage(): JSX.Element {
             receipt.farmerName,
             receipt.companyName,
             receipt.apricotTypeName,
-            formatGramAsKg(receipt.quantityGram),
+            `${formatGramAsKg(receipt.grossQuantityGram || receipt.quantityGram)} brÃ¼t / ${formatGramAsKg(receipt.quantityGram)} net`,
             formatKurus(receipt.totalAmountKurus),
             receipt.isCancelled ? 'İptal' : 'Geçerli',
             receipt.isCancelled ? (
@@ -1028,6 +1063,7 @@ function ReceiptPrintPreview({
 
       <article className="receipt-print-sheet">
         <header className="receipt-print-header">
+          <img src={arkLogoUrl} alt="" aria-hidden="true" />
           <div>
             <h2>Ali Rıza Karga TARIM</h2>
             <strong>KAYISI ALIM FİŞİ</strong>
@@ -1065,6 +1101,14 @@ function ReceiptPrintPreview({
           </div>
           <div>
             <span>Miktar</span>
+            <strong>{formatGramAsKg(receipt.grossQuantityGram || receipt.quantityGram)} brut</strong>
+          </div>
+          <div>
+            <span>Kasa / Dara</span>
+            <strong>{receipt.crateCount ? `${receipt.crateCount} kasa x ${formatGramAsKg(receipt.crateTareGram)}` : '-'}</strong>
+          </div>
+          <div>
+            <span>Net Miktar</span>
             <strong>{formatGramAsKg(receipt.quantityGram)}</strong>
           </div>
           <div>

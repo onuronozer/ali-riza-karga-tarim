@@ -145,6 +145,9 @@ export interface PurchaseReceiptListItem {
   companyName: string;
   apricotTypeId: string;
   apricotTypeName: string;
+  grossQuantityGram: number;
+  crateCount: number;
+  crateTareGram: number;
   quantityGram: number;
   unitPriceKurus: number;
   totalAmountKurus: number;
@@ -158,6 +161,9 @@ export interface SavePurchaseReceiptInput {
   farmerId: string;
   companyId: string;
   apricotTypeId: string;
+  grossQuantityGram?: number;
+  crateCount?: number;
+  crateTareGram?: number;
   quantityGram: number;
   unitPriceKurus: number;
   note?: string | null;
