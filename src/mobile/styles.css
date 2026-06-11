@@ -26,6 +26,85 @@ body {
     #eef3ef;
 }
 
+.mobile-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: linear-gradient(145deg, #0d321e 0%, #173823 58%, #092515 100%);
+  animation: introFade 0.28s ease 1.12s forwards;
+}
+
+.mobile-intro-card {
+  display: grid;
+  justify-items: center;
+  width: min(360px, 100%);
+  padding: 24px 24px 26px;
+  border: 1px solid rgba(230, 161, 58, 0.45);
+  border-radius: 20px;
+  background: #f8f8f4;
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.34);
+  text-align: center;
+}
+
+.mobile-intro-card img {
+  width: min(255px, 78vw);
+  height: min(255px, 78vw);
+  object-fit: contain;
+  margin: -6px 0 8px;
+}
+
+.mobile-intro-card strong {
+  color: #0f2819;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.mobile-intro-card span {
+  margin-top: 8px;
+  color: #5e6d61;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mobile-intro-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  margin-top: 18px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #dfe8d9;
+}
+
+.mobile-intro-bar::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d99e36, #f1c56d);
+  animation: mobileIntroLoad 1.2s ease-in-out infinite;
+  content: "";
+}
+
+@keyframes mobileIntroLoad {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes introFade {
+  to {
+    opacity: 0;
+  }
+}
+
 button {
   min-height: 40px;
   padding: 0 14px;

@@ -5,6 +5,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, type 
 import { collection, doc, getDoc, getDocs, getFirestore, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore';
 import { BarChart3, Building2, FileText, Home, Leaf, ReceiptText, Settings, Users } from 'lucide-react';
 import arkLogoUrl from '../shared/assets/ark-tarim-logo.svg';
+import palaogluLogoUrl from '../shared/assets/palaoglu-logo.png';
 import { BUNDLED_FIREBASE_SETTINGS } from '../shared/firebase/defaultSettings';
 import { formatDateTr, formatGramAsKg, formatKurus } from '../shared/formatters';
 import './styles.css';
@@ -1159,6 +1160,7 @@ async function shareCompanyPayment(payment: CompanyPaymentDoc): Promise<void> {
 
 function App(): JSX.Element {
   const [state, setState] = useState<LoadState>('idle');
+  const [showIntro, setShowIntro] = useState(true);
   const [data, setData] = useState<MobileData>(emptyData);
   const [error, setError] = useState<string | null>(null);
   const [deviceError, setDeviceError] = useState<string | null>(null);
@@ -1171,6 +1173,11 @@ function App(): JSX.Element {
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const introTimer = window.setTimeout(() => setShowIntro(false), 1400);
+    return () => window.clearTimeout(introTimer);
+  }, []);
 
   const refresh = async (options?: { silent?: boolean }): Promise<void> => {
     if (!options?.silent) {
@@ -1471,7 +1478,19 @@ function App(): JSX.Element {
   const activeTab = useMemo(() => tabs.find((tab) => tab.key === view) ?? tabs[0], [view]);
 
   return (
-    <div className="mobile-app-shell">
+    <>
+      {showIntro ? (
+        <div className="mobile-intro" aria-label="Uygulama açılıyor">
+          <div className="mobile-intro-card">
+            <img src={palaogluLogoUrl} alt="" aria-hidden="true" />
+            <strong>Ali Rıza Karga TARIM</strong>
+            <span>Kurumsal tarım paneli açılıyor...</span>
+            <div className="mobile-intro-bar" aria-hidden="true" />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mobile-app-shell">
       <aside className="mobile-sidebar">
         <div className="mobile-brand">
           <img className="mobile-brand-logo" src={arkLogoUrl} alt="" aria-hidden="true" />
@@ -1669,7 +1688,8 @@ function App(): JSX.Element {
         </>
       ) : null}
       </main>
-    </div>
+      </div>
+    </>
   );
 }
 
