@@ -15,6 +15,9 @@ const api: AppApi = {
     getStatus: () => ipcRenderer.invoke('sync:get-status'),
     runNow: () => ipcRenderer.invoke('sync:run-now')
   },
+  maintenance: {
+    resetTestData: (input) => ipcRenderer.invoke('maintenance:reset-test-data', input)
+  },
   seasons: {
     list: () => ipcRenderer.invoke('seasons:list'),
     getActive: () => ipcRenderer.invoke('seasons:get-active'),

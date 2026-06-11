@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { deleteApp, getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { collection, doc, getDocs, getFirestore, serverTimestamp, setDoc, type Firestore } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, getFirestore, serverTimestamp, setDoc, type Firestore } from 'firebase/firestore';
 import type { FirebaseSettings, SyncResult, SyncStatus } from '../../shared/ipc-contracts/app-api';
 import { getDatabase } from '../db/connection';
 import { getSetting, setSetting } from '../repositories/settingsRepository';
@@ -16,6 +16,16 @@ const SYNC_TABLES = [
   { tableName: 'purchase_receipts', collectionName: 'purchaseReceipts' },
   { tableName: 'farmer_payments', collectionName: 'farmerPayments' },
   { tableName: 'company_payments', collectionName: 'companyPayments' }
+] as const;
+const RESET_FIRESTORE_COLLECTIONS = [
+  'purchaseReceipts',
+  'farmerPayments',
+  'companyPayments',
+  'receiptNumberCounters',
+  'apricotTypes',
+  'farmers',
+  'companies',
+  'seasons'
 ] as const;
 
 type SyncTable = (typeof SYNC_TABLES)[number];
@@ -540,4 +550,28 @@ export async function runFirestoreSync(): Promise<SyncResult> {
     pushedCount,
     pulledCount
   };
+}
+
+export async function clearFirestoreDataForReset(): Promise<{ deletedCount: number; skipped: boolean }> {
+  const settings = getFirebaseSettings();
+
+  if (!hasFirebaseSettings(settings)) {
+    return { deletedCount: 0, skipped: true };
+  }
+
+  const app = await getSyncApp(settings);
+  await signInForSync(app, settings);
+  const firestore = getFirestore(app);
+  let deletedCount = 0;
+
+  for (const collectionName of RESET_FIRESTORE_COLLECTIONS) {
+    const snapshot = await getDocs(collection(firestore, collectionName));
+
+    for (const firestoreDoc of snapshot.docs) {
+      await deleteDoc(doc(firestore, collectionName, firestoreDoc.id));
+      deletedCount += 1;
+    }
+  }
+
+  return { deletedCount, skipped: false };
 }

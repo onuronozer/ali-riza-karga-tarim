@@ -5,6 +5,7 @@ import { registerPurchaseIpcHandlers } from './purchases';
 import { registerReportIpcHandlers } from './reports';
 import { registerSettingsIpcHandlers } from './settings';
 import { registerSyncIpcHandlers } from './sync';
+import { registerMaintenanceIpcHandlers } from './maintenance';
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('system:ping', () => ({
@@ -14,6 +15,7 @@ export function registerIpcHandlers(): void {
   }));
 
   registerSettingsIpcHandlers();
+  registerMaintenanceIpcHandlers();
   registerCatalogIpcHandlers();
   registerPurchaseIpcHandlers();
   registerPaymentIpcHandlers();

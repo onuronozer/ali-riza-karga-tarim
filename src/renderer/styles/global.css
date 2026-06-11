@@ -632,6 +632,21 @@ tr:last-child td {
   opacity: 0.6;
 }
 
+.maintenance-panel {
+  border-color: #ead2bf;
+  background: #fffaf5;
+}
+
+.maintenance-panel .muted-text {
+  margin: 0 0 14px;
+  color: #6c5c4b;
+  line-height: 1.6;
+}
+
+.reset-action {
+  margin-top: 8px;
+}
+
 .compact-list {
   display: grid;
   gap: 8px;

@@ -303,6 +303,9 @@ function DeviceSettings({ device }: { device: DeviceInfo | undefined }): JSX.Ele
     authPassword: ''
   });
   const [showFirebaseAdvanced, setShowFirebaseAdvanced] = useState(false);
+  const [showMaintenanceTools, setShowMaintenanceTools] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirmText, setResetConfirmText] = useState('');
 
   const { data: firebaseSettings } = useQuery({
     queryKey: ['firebase-settings'],
@@ -354,6 +357,21 @@ function DeviceSettings({ device }: { device: DeviceInfo | undefined }): JSX.Ele
     },
     onError: () => {
       setShowFirebaseAdvanced(true);
+    }
+  });
+
+  const resetDataMutation = useMutation({
+    mutationFn: () =>
+      window.arkTarim.maintenance.resetTestData({
+        password: resetPassword,
+        confirmation: resetConfirmText
+      }),
+    onSuccess: () => {
+      setResetPassword('');
+      setResetConfirmText('');
+      invalidateOperationalQueries(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['firebase-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['device'] });
     }
   });
 
@@ -493,6 +511,66 @@ function DeviceSettings({ device }: { device: DeviceInfo | undefined }): JSX.Ele
             {showFirebaseAdvanced ? 'Hesabı Kapat' : 'Online Hesabı Düzenle'}
           </button>
         </div>
+      </section>
+
+      <section className="panel settings-panel maintenance-panel" aria-labelledby="reset-title">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Bakım</p>
+            <h2 id="reset-title">Gelişmiş Bakım</h2>
+          </div>
+          <button className="ghost-action compact-button" onClick={() => setShowMaintenanceTools((value) => !value)}>
+            {showMaintenanceTools ? 'Kapat' : 'Aç'}
+          </button>
+        </div>
+
+        {showMaintenanceTools ? (
+          <>
+            <p className="muted-text">
+              Bu alan sadece deneme verilerini temizlemek için kullanılır. Cihaz kodu ve Firebase bağlantı ayarları kalır.
+            </p>
+
+            <div className="settings-grid">
+              <label>
+                <span>Bakım şifresi</span>
+                <input
+                  type="password"
+                  value={resetPassword}
+                  onChange={(event) => setResetPassword(event.target.value)}
+                  placeholder="Bakım şifresi"
+                />
+              </label>
+              <label>
+                <span>Onay metni</span>
+                <input
+                  value={resetConfirmText}
+                  onChange={(event) => setResetConfirmText(event.target.value.toUpperCase())}
+                  placeholder="SIFIRLA"
+                />
+              </label>
+            </div>
+
+            {resetDataMutation.isError ? <p className="form-error">{asErrorMessage(resetDataMutation.error)}</p> : null}
+            {resetDataMutation.isSuccess ? (
+              <p className="form-success">
+                Sıfırlama tamamlandı. Yerel {resetDataMutation.data.localDeletedCount} kayıt temizlendi
+                {resetDataMutation.data.firebaseSkipped
+                  ? '. Firebase ayarı olmadığı için online temizlik atlandı.'
+                  : `, Firebase ${resetDataMutation.data.firebaseDeletedCount} kayıt temizlendi.`}
+              </p>
+            ) : null}
+
+            <button
+              className="inline-danger reset-action"
+              onClick={() => resetDataMutation.mutate()}
+              disabled={!resetPassword.trim() || resetConfirmText !== 'SIFIRLA' || resetDataMutation.isPending}
+            >
+              Tüm Deneme Verilerini Sıfırla
+            </button>
+          </>
+        ) : (
+          <p className="muted-text">Deneme verilerini temizleme aracı kapalıdır.</p>
+        )}
       </section>
     </>
   );

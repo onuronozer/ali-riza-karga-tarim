@@ -41,6 +41,17 @@ export interface SystemPing {
   version: string;
 }
 
+export interface MaintenanceResetResult {
+  localDeletedCount: number;
+  firebaseDeletedCount: number;
+  firebaseSkipped: boolean;
+}
+
+export interface MaintenanceResetInput {
+  password: string;
+  confirmation: string;
+}
+
 export interface SeasonListItem {
   id: string;
   name: string;
@@ -256,6 +267,9 @@ export interface AppApi {
   sync: {
     getStatus: () => Promise<SyncStatus>;
     runNow: () => Promise<SyncResult>;
+  };
+  maintenance: {
+    resetTestData: (input: MaintenanceResetInput) => Promise<MaintenanceResetResult>;
   };
   seasons: {
     list: () => Promise<SeasonListItem[]>;
