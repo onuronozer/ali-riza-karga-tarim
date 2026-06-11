@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { closeDatabase, initializeDatabase } from './db/connection';
 import { runMigrations } from './db/migrate';
 import { registerIpcHandlers } from './ipc';
@@ -12,7 +12,7 @@ const SPLASH_MIN_VISIBLE_MS = 1200;
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 
-function resolvePalaogluLogoUrl(): string {
+function resolvePalaogluLogoSrc(): string {
   const candidatePaths = [
     join(app.getAppPath(), 'assets', 'palaoglu-logo.png'),
     join(__dirname, '../assets/palaoglu-logo.png'),
@@ -22,10 +22,15 @@ function resolvePalaogluLogoUrl(): string {
   ];
 
   const logoPath = candidatePaths.find((candidate) => existsSync(candidate));
-  return logoPath ? pathToFileURL(logoPath).toString() : '';
+
+  if (!logoPath) {
+    return '';
+  }
+
+  return `data:image/png;base64,${readFileSync(logoPath).toString('base64')}`;
 }
 
-function createSplashMarkup(logoUrl: string): string {
+function createSplashMarkup(logoSrc: string): string {
   return `<!doctype html>
 <html lang="tr">
   <head>
@@ -96,7 +101,7 @@ function createSplashMarkup(logoUrl: string): string {
   </head>
   <body>
     <section class="card">
-      ${logoUrl ? `<img src="${logoUrl}" alt="" />` : ''}
+      ${logoSrc ? `<img src="${logoSrc}" alt="" />` : ''}
       <h1>Ali Rıza Karga TARIM</h1>
       <p>Kurumsal tarım paneli açılıyor...</p>
       <div class="bar" aria-hidden="true"></div>
@@ -127,7 +132,7 @@ function createSplashWindow(): void {
     splashWindow = null;
   });
 
-  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(createSplashMarkup(resolvePalaogluLogoUrl()))}`);
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(createSplashMarkup(resolvePalaogluLogoSrc()))}`);
 }
 
 function revealMainWindow(): void {
