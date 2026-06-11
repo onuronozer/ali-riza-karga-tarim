@@ -15,6 +15,7 @@ type BooleanNumber = 0 | 1;
 interface EntityNameRow {
   id: string;
   name: string;
+  nickname: string | null;
 }
 
 interface FarmerPaymentRow {
@@ -91,10 +92,11 @@ function normalizePaymentMethod(method: PaymentMethod): PaymentMethod {
 }
 
 function getEntityName(tableName: 'farmers' | 'companies', id: string, label: string): EntityNameRow {
+  const selectColumns = tableName === 'farmers' ? 'id, name, nickname' : 'id, name, NULL AS nickname';
   const row = getDatabase()
     .prepare(
       `
-      SELECT id, name
+      SELECT ${selectColumns}
       FROM ${tableName}
       WHERE id = ? AND deleted_at IS NULL AND is_active = 1
       `
@@ -106,6 +108,10 @@ function getEntityName(tableName: 'farmers' | 'companies', id: string, label: st
   }
 
   return row;
+}
+
+function displayEntityName(row: EntityNameRow): string {
+  return row.nickname ? `${row.name} (${row.nickname})` : row.name;
 }
 
 function ensureSeasonSummary(seasonId: string, timestamp: string): void {
@@ -216,7 +222,7 @@ export function createFarmerPayment(input: SaveFarmerPaymentInput): FarmerPaymen
       id,
       seasonId: season.id,
       farmerId: farmer.id,
-      farmerName: farmer.name,
+      farmerName: displayEntityName(farmer),
       date,
       dateKey,
       amountKurus,

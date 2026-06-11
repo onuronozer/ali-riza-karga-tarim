@@ -11,6 +11,7 @@ import { ensureActiveSeason } from './catalogService';
 interface EntityNameRow {
   id: string;
   name: string;
+  nickname: string | null;
 }
 
 interface PurchaseReceiptRow {
@@ -117,10 +118,11 @@ function getDeviceCode(): string {
 }
 
 function getEntityName(tableName: 'farmers' | 'companies' | 'apricot_types', id: string, label: string): EntityNameRow {
+  const selectColumns = tableName === 'farmers' ? 'id, name, nickname' : 'id, name, NULL AS nickname';
   const row = getDatabase()
     .prepare(
       `
-      SELECT id, name
+      SELECT ${selectColumns}
       FROM ${tableName}
       WHERE id = ? AND deleted_at IS NULL AND is_active = 1
       `
@@ -132,6 +134,10 @@ function getEntityName(tableName: 'farmers' | 'companies' | 'apricot_types', id:
   }
 
   return row;
+}
+
+function displayEntityName(row: EntityNameRow): string {
+  return row.nickname ? `${row.name} (${row.nickname})` : row.name;
 }
 
 function nextReceiptNo(dateKey: string, deviceCode: string): string {
@@ -253,7 +259,7 @@ export function createPurchaseReceipt(input: SavePurchaseReceiptInput): Purchase
       dateKey,
       timeText,
       farmerId: farmer.id,
-      farmerName: farmer.name,
+      farmerName: displayEntityName(farmer),
       companyId: company.id,
       companyName: company.name,
       apricotTypeId: apricotType.id,

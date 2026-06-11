@@ -73,6 +73,7 @@ export interface SaveSeasonInput {
 export interface FarmerListItem {
   id: string;
   name: string;
+  nickname: string | null;
   phone: string | null;
   village: string | null;
   note: string | null;
@@ -87,6 +88,7 @@ export interface FarmerListItem {
 export interface SaveFarmerInput {
   id?: string;
   name: string;
+  nickname?: string | null;
   phone?: string | null;
   village?: string | null;
   note?: string | null;

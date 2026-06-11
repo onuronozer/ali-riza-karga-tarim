@@ -2,6 +2,7 @@ import type { SyncFields } from './sync';
 
 export interface Farmer extends SyncFields {
   name: string;
+  nickname: string | null;
   phone: string | null;
   village: string | null;
   note: string | null;

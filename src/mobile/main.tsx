@@ -12,6 +12,7 @@ import './styles.css';
 interface FarmerDoc {
   id: string;
   name: string;
+  nickname?: string | null;
   phone?: string | null;
   village?: string | null;
   note?: string | null;
@@ -337,6 +338,14 @@ function normalizeText(value: string): string {
   return value.toLocaleLowerCase('tr-TR').trim();
 }
 
+function normalizePersonKey(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr-TR');
+}
+
+function farmerDisplayName(farmer: Pick<FarmerDoc, 'name' | 'nickname'>): string {
+  return farmer.nickname ? `${farmer.name} (${farmer.nickname})` : farmer.name;
+}
+
 function containsSearch(search: string, ...values: Array<string | number | null | undefined>): boolean {
   const query = normalizeText(search);
 
@@ -490,6 +499,28 @@ function optionalText(value: string | null | undefined): string | null {
   return normalized ? normalized : null;
 }
 
+function normalizeWhatsAppPhone(phone: string | null | undefined): string | null {
+  const digits = (phone ?? '').replace(/\D/g, '');
+
+  if (!digits) {
+    return null;
+  }
+
+  if (digits.startsWith('90') && digits.length >= 12) {
+    return digits;
+  }
+
+  if (digits.startsWith('0') && digits.length === 11) {
+    return `90${digits.slice(1)}`;
+  }
+
+  if (digits.startsWith('5') && digits.length === 10) {
+    return `90${digits}`;
+  }
+
+  return digits.length >= 10 ? digits : null;
+}
+
 function parseLocaleNumber(value: string): number {
   const clean = value.trim().replace(/\s/g, '');
 
@@ -594,13 +625,20 @@ function readActiveName(
   }
 
   return {
-    name: requiredText(String(data.name ?? ''), label),
+    name:
+      label === 'Çiftçi'
+        ? farmerDisplayName({
+            name: requiredText(String(data.name ?? ''), label),
+            nickname: optionalText(String(data.nickname ?? ''))
+          })
+        : requiredText(String(data.name ?? ''), label),
     version: asNumber(data.version)
   };
 }
 
 async function createMobileFarmer(input: {
   name: string;
+  nickname: string;
   phone: string;
   village: string;
   note: string;
@@ -609,9 +647,27 @@ async function createMobileFarmer(input: {
   const id = newLocalId();
   const timestamp = nowIso();
   const name = requiredText(input.name, 'Çiftçi adı');
+  const nickname = optionalText(input.nickname);
+  const existingSnapshot = await getDocs(collection(db, 'farmers'));
+  const sameNameFarmers = existingSnapshot.docs
+    .map((document) => mapDoc<FarmerDoc>(document.id, document.data()))
+    .filter((farmer) => !farmer.deletedAt && normalizePersonKey(farmer.name) === normalizePersonKey(name));
+
+  if (sameNameFarmers.length > 0 && !nickname) {
+    throw new Error(`${name} adında kayıt zaten var. Karışıklık olmaması için lakap girin veya mevcut kaydı kontrol edin.`);
+  }
+
+  if (
+    nickname &&
+    sameNameFarmers.some((farmer) => normalizePersonKey(farmer.nickname) === normalizePersonKey(nickname))
+  ) {
+    throw new Error(`${name} (${nickname}) kaydı zaten var. Mevcut kaydı kontrol edin.`);
+  }
+
   const farmer: FarmerDoc = {
     id,
     name,
+    nickname,
     phone: optionalText(input.phone),
     village: optionalText(input.village),
     note: optionalText(input.note),
@@ -933,7 +989,26 @@ async function createMobileCompanyPayment(input: {
   });
 }
 
-async function sharePlainText(title: string, text: string): Promise<void> {
+function findFarmerPhone(
+  farmers: FarmerDoc[],
+  farmerId: string | undefined,
+  farmerName: string | undefined
+): string | null {
+  const farmer =
+    farmers.find((item) => item.id === farmerId) ??
+    farmers.find((item) => item.name === farmerName || farmerDisplayName(item) === farmerName);
+
+  return farmer?.phone ?? null;
+}
+
+async function sharePlainText(title: string, text: string, phone?: string | null): Promise<void> {
+  const whatsappPhone = normalizeWhatsAppPhone(phone);
+
+  if (whatsappPhone) {
+    window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
   if (navigator.share) {
     await navigator.share({ title, text });
     return;
@@ -961,8 +1036,8 @@ function receiptShareText(receipt: ReceiptDoc): string {
     .join('\n');
 }
 
-async function shareReceipt(receipt: ReceiptDoc): Promise<void> {
-  await sharePlainText(`Alım Fişi ${receipt.receiptNo}`, receiptShareText(receipt));
+async function shareReceipt(receipt: ReceiptDoc, farmerPhone?: string | null): Promise<void> {
+  await sharePlainText(`Alım Fişi ${receipt.receiptNo}`, receiptShareText(receipt), farmerPhone);
 }
 
 function receiptTareText(receipt: ReceiptDoc): string {
@@ -1074,8 +1149,8 @@ function companyPaymentShareText(payment: CompanyPaymentDoc): string {
     .join('\n');
 }
 
-async function shareFarmerPayment(payment: FarmerPaymentDoc): Promise<void> {
-  await sharePlainText('Çiftçi Ödeme Fişi', farmerPaymentShareText(payment));
+async function shareFarmerPayment(payment: FarmerPaymentDoc, farmerPhone?: string | null): Promise<void> {
+  await sharePlainText('Çiftçi Ödeme Fişi', farmerPaymentShareText(payment), farmerPhone);
 }
 
 async function shareCompanyPayment(payment: CompanyPaymentDoc): Promise<void> {
@@ -1235,7 +1310,7 @@ function App(): JSX.Element {
   const filteredFarmers = useMemo(
     () =>
       data.farmers.filter((farmer) =>
-        containsSearch(search, farmer.name, farmer.phone, farmer.village, farmer.balanceKurus, farmer.totalGram)
+        containsSearch(search, farmer.name, farmer.nickname, farmer.phone, farmer.village, farmer.balanceKurus, farmer.totalGram)
       ),
     [data.farmers, search]
   );
@@ -1531,6 +1606,7 @@ function App(): JSX.Element {
                 />
               }
               receipts={filteredReceipts}
+              farmers={data.farmers}
               selectedReceipt={selectedReceipt}
               onSelectReceipt={setSelectedReceiptId}
             />
@@ -1709,6 +1785,9 @@ function MobileReceiptForm({
   const canSave = Boolean(
     mobileDevice && form.farmerId && form.companyId && form.apricotTypeId && quantityGram > 0 && unitPriceKurus > 0
   );
+  const createdReceiptFarmerPhone = createdReceipt
+    ? findFarmerPhone(farmers, createdReceipt.farmerId, createdReceipt.farmerName)
+    : null;
 
   const submit = async (): Promise<void> => {
     if (!mobileDevice) {
@@ -1774,7 +1853,7 @@ function MobileReceiptForm({
             <option value="">Seç</option>
             {farmers.map((farmer) => (
               <option key={farmer.id} value={farmer.id}>
-                {farmer.name}
+                {farmerDisplayName(farmer)}
               </option>
             ))}
           </select>
@@ -1858,7 +1937,7 @@ function MobileReceiptForm({
       <button onClick={submit} disabled={!canSave || isSaving} type="button">
         Fişi Kaydet
       </button>
-      {createdReceipt ? <MobileReceiptPrintCard receipt={createdReceipt} /> : null}
+      {createdReceipt ? <MobileReceiptPrintCard receipt={createdReceipt} farmerPhone={createdReceiptFarmerPhone} /> : null}
     </div>
   );
 }
@@ -1882,6 +1961,9 @@ function MobileFarmerPaymentForm({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const amountKurus = parseTlToKurus(form.amountTl);
+  const createdPaymentFarmerPhone = createdPayment
+    ? findFarmerPhone(farmers, createdPayment.farmerId, createdPayment.farmerName)
+    : null;
 
   useEffect(() => {
     setForm((current) => ({ ...current, farmerId: current.farmerId || farmers[0]?.id || '' }));
@@ -1923,7 +2005,7 @@ function MobileFarmerPaymentForm({
             <option value="">Seç</option>
             {farmers.map((farmer) => (
               <option key={farmer.id} value={farmer.id}>
-                {farmer.name} · {formatKurus(asNumber(farmer.balanceKurus))}
+                {farmerDisplayName(farmer)} · {formatKurus(asNumber(farmer.balanceKurus))}
               </option>
             ))}
           </select>
@@ -1972,7 +2054,7 @@ function MobileFarmerPaymentForm({
         <MobilePaymentPrintCard
           title="Çiftçi Ödeme Fişi"
           payment={createdPayment}
-          onShare={() => shareFarmerPayment(createdPayment)}
+          onShare={() => shareFarmerPayment(createdPayment, createdPaymentFarmerPhone)}
         />
       ) : null}
     </div>
@@ -2100,7 +2182,7 @@ function MobileFarmerForm({
 }: {
   onCreated: (target?: { type: 'receipt' | 'farmer' | 'company'; id: string }) => Promise<void>;
 }): JSX.Element {
-  const [form, setForm] = useState({ name: '', phone: '', village: '', note: '' });
+  const [form, setForm] = useState({ name: '', nickname: '', phone: '', village: '', note: '' });
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -2110,7 +2192,7 @@ function MobileFarmerForm({
 
     try {
       const farmer = await createMobileFarmer(form);
-      setForm({ name: '', phone: '', village: '', note: '' });
+      setForm({ name: '', nickname: '', phone: '', village: '', note: '' });
       await onCreated({ type: 'farmer', id: farmer.id });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Çiftçi kaydedilemedi.');
@@ -2125,6 +2207,14 @@ function MobileFarmerForm({
         <label>
           <span>Çiftçi adı</span>
           <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+        </label>
+        <label>
+          <span>Lakap</span>
+          <input
+            value={form.nickname}
+            onChange={(event) => setForm((current) => ({ ...current, nickname: event.target.value }))}
+            placeholder="Aynı isim varsa zorunlu"
+          />
         </label>
         <label>
           <span>Telefon</span>
@@ -2217,7 +2307,13 @@ function MobileCompanyForm({
   );
 }
 
-function MobileReceiptPrintCard({ receipt }: { receipt: ReceiptDoc }): JSX.Element {
+function MobileReceiptPrintCard({
+  receipt,
+  farmerPhone
+}: {
+  receipt: ReceiptDoc;
+  farmerPhone?: string | null;
+}): JSX.Element {
   return (
     <article className="mobile-print-card">
       <div className="mobile-print-head">
@@ -2242,7 +2338,7 @@ function MobileReceiptPrintCard({ receipt }: { receipt: ReceiptDoc }): JSX.Eleme
       </div>
       <ReceiptPrintSheet receipt={receipt} />
       <div className="detail-actions">
-        <button type="button" onClick={() => void shareReceipt(receipt)}>
+        <button type="button" onClick={() => void shareReceipt(receipt, farmerPhone)}>
           Paylaş
         </button>
         <button type="button" className="ghost-button" onClick={() => window.print()}>
@@ -2392,11 +2488,13 @@ function OverviewView({
 function ReceiptsView({
   entryForm,
   receipts,
+  farmers,
   selectedReceipt,
   onSelectReceipt
 }: {
   entryForm: JSX.Element;
   receipts: ReceiptDoc[];
+  farmers: FarmerDoc[];
   selectedReceipt: ReceiptDoc | null;
   onSelectReceipt: (receiptId: string) => void;
 }): JSX.Element {
@@ -2430,7 +2528,7 @@ function ReceiptsView({
         </div>
       </div>
 
-      <ReceiptDetail receipt={selectedReceipt} />
+      <ReceiptDetail receipt={selectedReceipt} farmers={farmers} />
     </section>
     </section>
   );
@@ -2478,7 +2576,7 @@ function FarmersView({
             >
               <article className="mobile-row">
                 <div>
-                  <strong>{farmer.name}</strong>
+                  <strong>{farmerDisplayName(farmer)}</strong>
                   <span>{[farmer.village, farmer.phone].filter(Boolean).join(' · ') || 'Bilgi yok'}</span>
                 </div>
                 <div>
@@ -2883,7 +2981,7 @@ function MobileReportsView({
             <select value={selectedFarmerId} onChange={(event) => setSelectedFarmerId(event.target.value)}>
               {data.farmers.map((farmer) => (
                 <option key={farmer.id} value={farmer.id}>
-                  {farmer.name}
+                  {farmerDisplayName(farmer)}
                 </option>
               ))}
             </select>
@@ -3048,7 +3146,13 @@ function ReceiptRow({ receipt }: { receipt: ReceiptDoc }): JSX.Element {
   );
 }
 
-function ReceiptDetail({ receipt }: { receipt: ReceiptDoc | null }): JSX.Element {
+function ReceiptDetail({
+  receipt,
+  farmers
+}: {
+  receipt: ReceiptDoc | null;
+  farmers: FarmerDoc[];
+}): JSX.Element {
   if (!receipt) {
     return (
       <section className="mobile-panel detail-panel">
@@ -3068,7 +3172,10 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptDoc | null }): JSX.Element
         <span>{receipt.receiptNo}</span>
       </div>
       <div className="detail-actions">
-        <button type="button" onClick={() => void shareReceipt(receipt)}>
+        <button
+          type="button"
+          onClick={() => void shareReceipt(receipt, findFarmerPhone(farmers, receipt.farmerId, receipt.farmerName))}
+        >
           Paylaş
         </button>
         <button type="button" className="ghost-button" onClick={() => window.print()}>
@@ -3121,7 +3228,7 @@ function FarmerDetail({
   return (
     <section className="mobile-panel detail-panel">
       <div className="panel-title">
-        <h2>{farmer.name}</h2>
+        <h2>{farmerDisplayName(farmer)}</h2>
         <span>{receipts.length} fiş</span>
       </div>
       <div className="mobile-account-banner">

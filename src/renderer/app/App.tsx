@@ -707,6 +707,10 @@ function normalizeSearch(value: string): string {
   return value.trim().toLocaleLowerCase('tr-TR');
 }
 
+function farmerDisplayName(farmer: Pick<FarmerListItem, 'name' | 'nickname'>): string {
+  return farmer.nickname ? `${farmer.name} (${farmer.nickname})` : farmer.name;
+}
+
 function sortReceiptOldestFirst(a: PurchaseReceiptListItem, b: PurchaseReceiptListItem): number {
   const dateCompare = a.dateKey.localeCompare(b.dateKey);
 
@@ -785,7 +789,7 @@ function PurchasesPage(): JSX.Element {
       return true;
     }
 
-    return [farmer.name, farmer.phone ?? '', farmer.village ?? '']
+    return [farmer.name, farmer.nickname ?? '', farmer.phone ?? '', farmer.village ?? '']
       .map((value) => normalizeSearch(value))
       .some((value) => value.includes(query));
   });
@@ -872,7 +876,7 @@ function PurchasesPage(): JSX.Element {
                   setIsFarmerSearchOpen(true);
                   const selectedFarmer = activeFarmers.find((farmer) => farmer.id === form.farmerId);
 
-                  if (selectedFarmer && normalizeSearch(selectedFarmer.name) !== normalizeSearch(value)) {
+                  if (selectedFarmer && normalizeSearch(farmerDisplayName(selectedFarmer)) !== normalizeSearch(value)) {
                     setForm((current) => ({ ...current, farmerId: '' }));
                   }
                 }}
@@ -891,11 +895,11 @@ function PurchasesPage(): JSX.Element {
                       className={form.farmerId === farmer.id ? 'combo-option selected' : 'combo-option'}
                       onClick={() => {
                         setForm((value) => ({ ...value, farmerId: farmer.id }));
-                        setFarmerSearch(farmer.name);
+                        setFarmerSearch(farmerDisplayName(farmer));
                         setIsFarmerSearchOpen(false);
                       }}
                     >
-                      <strong>{farmer.name}</strong>
+                      <strong>{farmerDisplayName(farmer)}</strong>
                       <span>{[farmer.village, farmer.phone].filter(Boolean).join(' · ') || 'Bilgi yok'}</span>
                     </button>
                   ))
@@ -1303,7 +1307,7 @@ function FarmersPage(): JSX.Element {
   const [selectedFarmerId, setSelectedFarmerId] = useState('');
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [printTarget, setPrintTarget] = useState<ReportPrintTarget | null>(null);
-  const [form, setForm] = useState<SaveFarmerInput>({ name: '', phone: '', village: '', note: '' });
+  const [form, setForm] = useState<SaveFarmerInput>({ name: '', nickname: '', phone: '', village: '', note: '' });
 
   const { data: farmers } = useQuery({
     queryKey: ['farmers', search],
@@ -1333,13 +1337,14 @@ function FarmersPage(): JSX.Element {
 
   useEffect(() => {
     if (!editing) {
-      setForm({ name: '', phone: '', village: '', note: '' });
+      setForm({ name: '', nickname: '', phone: '', village: '', note: '' });
       return;
     }
 
     setForm({
       id: editing.id,
       name: editing.name,
+      nickname: editing.nickname ?? '',
       phone: editing.phone ?? '',
       village: editing.village ?? '',
       note: editing.note ?? '',
@@ -1428,6 +1433,14 @@ function FarmersPage(): JSX.Element {
                 />
               </label>
               <label>
+                <span>Lakap</span>
+                <input
+                  value={form.nickname ?? ''}
+                  onChange={(event) => setForm((value) => ({ ...value, nickname: event.target.value }))}
+                  placeholder="Aynı isim varsa zorunlu"
+                />
+              </label>
+              <label>
                 <span>Telefon</span>
                 <input
                   value={form.phone ?? ''}
@@ -1474,7 +1487,7 @@ function FarmersPage(): JSX.Element {
                   setIsAccountOpen(true);
                 },
                 cells: [
-                  farmer.name,
+                  farmerDisplayName(farmer),
                   farmer.phone ?? '-',
                   farmer.village ?? '-',
                   formatGramAsKg(farmer.totalGram),
@@ -1488,7 +1501,7 @@ function FarmersPage(): JSX.Element {
                         setEditing(farmer);
                       }}
                       onDeactivate={() => {
-                        if (window.confirm(`${farmer.name} kaydı pasifleştirilsin mi?`)) {
+                        if (window.confirm(`${farmerDisplayName(farmer)} kaydı pasifleştirilsin mi?`)) {
                           deactivateMutation.mutate(farmer.id);
                         }
                       }}
@@ -1531,7 +1544,7 @@ function FarmerAccountPanel({
       <div className="account-hero">
         <div>
           <p className="eyebrow">Şahsi pencere</p>
-          <h3>{statement.farmer.name}</h3>
+          <h3>{farmerDisplayName(statement.farmer)}</h3>
           <span>{[statement.farmer.village, statement.farmer.phone].filter(Boolean).join(' · ') || 'Bilgi yok'}</span>
         </div>
         <div className={statement.balanceKurus > 0 ? 'account-balance due' : 'account-balance clear'}>
@@ -2260,7 +2273,7 @@ function FarmerPaymentsPage(): JSX.Element {
                   <option value="">Seç</option>
                   {activeFarmers.map((farmer) => (
                     <option value={farmer.id} key={farmer.id}>
-                      {farmer.name} · {formatKurus(farmer.balanceKurus)}
+                      {farmerDisplayName(farmer)} · {formatKurus(farmer.balanceKurus)}
                     </option>
                   ))}
                 </select>
@@ -2887,7 +2900,7 @@ function ReportsPage(): JSX.Element {
                 <option value="">Seç</option>
                 {(farmers ?? []).map((farmer) => (
                   <option value={farmer.id} key={farmer.id}>
-                    {farmer.name}
+                    {farmerDisplayName(farmer)}
                   </option>
                 ))}
               </select>
@@ -3069,7 +3082,7 @@ function FarmerStatementPrintSheet({ data }: { data: FarmerStatementPrintData })
       <section className="print-summary-grid">
         <div>
           <span>Çiftçi</span>
-          <strong>{data.farmer.name}</strong>
+          <strong>{farmerDisplayName(data.farmer)}</strong>
         </div>
         <div>
           <span>Toplam Kg</span>

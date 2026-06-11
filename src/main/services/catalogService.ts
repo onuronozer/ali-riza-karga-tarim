@@ -29,6 +29,7 @@ interface SeasonRow {
 interface FarmerRow {
   id: string;
   name: string;
+  nickname: string | null;
   phone: string | null;
   village: string | null;
   note: string | null;
@@ -77,6 +78,48 @@ function optionalText(value: string | null | undefined): string | null {
   return normalized ? normalized : null;
 }
 
+function normalizePersonKey(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr-TR');
+}
+
+function displayFarmerName(name: string, nickname: string | null): string {
+  return nickname ? `${name} (${nickname})` : name;
+}
+
+function assertFarmerIdentityAvailable(id: string, name: string, nickname: string | null): void {
+  const existingFarmers = getDatabase()
+    .prepare(
+      `
+      SELECT id, name, nickname
+      FROM farmers
+      WHERE deleted_at IS NULL
+        AND id <> @id
+      `
+    )
+    .all({ id }) as Array<{ id: string; name: string; nickname: string | null }>;
+  const normalizedName = normalizePersonKey(name);
+  const sameNameFarmers = existingFarmers.filter((farmer) => normalizePersonKey(farmer.name) === normalizedName);
+
+  if (sameNameFarmers.length === 0) {
+    return;
+  }
+
+  if (!nickname) {
+    throw new Error(
+      `${name} adında kayıt zaten var. Karışıklık olmaması için lakap girin veya mevcut kaydı kontrol edin.`
+    );
+  }
+
+  const normalizedNickname = normalizePersonKey(nickname);
+  const sameNicknameFarmer = sameNameFarmers.find(
+    (farmer) => normalizePersonKey(farmer.nickname) === normalizedNickname
+  );
+
+  if (sameNicknameFarmer) {
+    throw new Error(`${displayFarmerName(name, nickname)} kaydı zaten var. Mevcut kaydı kontrol edin.`);
+  }
+}
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -100,6 +143,7 @@ function mapFarmer(row: FarmerRow): FarmerListItem {
   return {
     id: row.id,
     name: row.name,
+    nickname: row.nickname,
     phone: row.phone,
     village: row.village,
     note: row.note,
@@ -352,11 +396,11 @@ export function listFarmers(search = ''): FarmerListItem[] {
   const rows = getDatabase()
     .prepare(
       `
-      SELECT id, name, phone, village, note, is_active, total_gram, total_amount_kurus,
+      SELECT id, name, nickname, phone, village, note, is_active, total_gram, total_amount_kurus,
              paid_amount_kurus, balance_kurus, receipt_count
       FROM farmers
       WHERE deleted_at IS NULL
-        AND (@search = '%%' OR name LIKE @search OR village LIKE @search OR phone LIKE @search)
+        AND (@search = '%%' OR name LIKE @search OR nickname LIKE @search OR village LIKE @search OR phone LIKE @search)
       ORDER BY is_active DESC, name ASC
       LIMIT 500
       `
@@ -369,8 +413,10 @@ export function listFarmers(search = ''): FarmerListItem[] {
 export function saveFarmer(input: SaveFarmerInput): FarmerListItem {
   const db = getDatabase();
   const name = requiredText(input.name, 'Çiftçi adı');
+  const nickname = optionalText(input.nickname);
   const timestamp = nowIso();
   const id = input.id ?? randomUUID();
+  assertFarmerIdentityAvailable(id, name, nickname);
   const existing = input.id
     ? (db.prepare('SELECT sync_status FROM farmers WHERE id = ?').get(input.id) as
         | { sync_status: string }
@@ -382,6 +428,7 @@ export function saveFarmer(input: SaveFarmerInput): FarmerListItem {
       `
       UPDATE farmers
       SET name = @name,
+          nickname = @nickname,
           phone = @phone,
           village = @village,
           note = @note,
@@ -394,6 +441,7 @@ export function saveFarmer(input: SaveFarmerInput): FarmerListItem {
     ).run({
       id,
       name,
+      nickname,
       phone: optionalText(input.phone),
       village: optionalText(input.village),
       note: optionalText(input.note),
@@ -405,18 +453,19 @@ export function saveFarmer(input: SaveFarmerInput): FarmerListItem {
     db.prepare(
       `
       INSERT INTO farmers (
-        id, cloud_id, name, phone, village, note, is_active,
+        id, cloud_id, name, nickname, phone, village, note, is_active,
         total_gram, total_amount_kurus, paid_amount_kurus, balance_kurus,
         receipt_count, sync_status, created_at, updated_at, deleted_at, version
       )
       VALUES (
-        @id, NULL, @name, @phone, @village, @note, 1,
+        @id, NULL, @name, @nickname, @phone, @village, @note, 1,
         0, 0, 0, 0, 0, 'pending_create', @createdAt, @updatedAt, NULL, 1
       )
       `
     ).run({
       id,
       name,
+      nickname,
       phone: optionalText(input.phone),
       village: optionalText(input.village),
       note: optionalText(input.note),
@@ -428,7 +477,7 @@ export function saveFarmer(input: SaveFarmerInput): FarmerListItem {
   const row = db
     .prepare(
       `
-      SELECT id, name, phone, village, note, is_active, total_gram, total_amount_kurus,
+      SELECT id, name, nickname, phone, village, note, is_active, total_gram, total_amount_kurus,
              paid_amount_kurus, balance_kurus, receipt_count
       FROM farmers
       WHERE id = ?
